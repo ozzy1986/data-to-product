@@ -9,6 +9,7 @@ from app.factory import build_llm
 from app.llm import LLMError, LLMUnavailable
 from app.llm.ollama import OllamaClient
 from app.llm.openai import OpenAIClient
+from app.llm.claude import ClaudeClient
 
 SCHEMA = {"type": "object", "properties": {"seo_title": {"type": "string"}}}
 CARD = {"seo_title": "Манометр DM 02"}
@@ -110,13 +111,28 @@ def test_ollama_retries_without_think_for_old_models():
     assert "think" in json.loads(seen[0].content) and "think" not in json.loads(seen[1].content)
 
 
-def test_factory_picks_client_by_provider():
-    assert isinstance(build_llm(Settings(llm_provider="ollama")), OllamaClient)
-    llm = build_llm(Settings(llm_provider="openai", llm_url="https://api.openai.com/v1", llm_model="gpt-x"))
-    assert isinstance(llm, OpenAIClient) and llm.model == "gpt-x"
+def test_factory_picks_client_and_defaults_by_provider():
+    assert isinstance(build_llm(Settings(llm_provider="ollama", llm_url="", llm_model="")), OllamaClient)
+    llm = build_llm(Settings(llm_provider="openai", llm_url="", llm_model=""))
+    assert isinstance(llm, OpenAIClient) and llm.model == "gpt-4o-mini"
+    llm = build_llm(Settings(llm_provider="anthropic", llm_url="", llm_model="", llm_api_key="k"))
+    assert isinstance(llm, ClaudeClient) and llm.model == "claude-opus-5-5"
+    assert build_llm(Settings(llm_provider="openai", llm_model="deepseek-chat")).model == "deepseek-chat"
     with pytest.raises(ValueError, match="LLM_PROVIDER"):
         build_llm(Settings(llm_provider="nope"))
 
 
 def test_api_key_is_hidden_from_settings_repr():
     assert "sk-secret" not in repr(Settings(llm_api_key="sk-secret"))
+
+
+def test_dotenv_fills_only_missing_variables(tmp_path, monkeypatch):
+    from app.config import load_dotenv
+    env = tmp_path / ".env"
+    env.write_text("# комментарий\nD2P_A=from-file\nD2P_B='quoted'\nD2P_C=file\n", encoding="utf-8")
+    monkeypatch.setenv("D2P_C", "from-env")
+    for name in ("D2P_A", "D2P_B"):
+        monkeypatch.delenv(name, raising=False)
+    load_dotenv(env)
+    import os
+    assert (os.environ["D2P_A"], os.environ["D2P_B"], os.environ["D2P_C"]) == ("from-file", "quoted", "from-env")

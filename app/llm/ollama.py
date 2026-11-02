@@ -20,6 +20,7 @@ class OllamaClient:
         # trust_env=False: системные HTTP(S)_PROXY не должны перехватывать запросы к локальной модели.
         self._http = httpx.Client(base_url=base_url.rstrip("/"), timeout=timeout, trust_env=False,
                                   transport=transport)
+        self._unreachable = f"Ollama недоступна по адресу {base_url}: запустите Ollama или выберите LLM_PROVIDER"
 
     def generate_json(self, system: str, user: str, schema: dict[str, Any]) -> dict[str, Any]:
         payload = {
@@ -52,5 +53,4 @@ class OllamaClient:
             return False
 
     def _post(self, payload: dict[str, Any]) -> httpx.Response:
-        return post(self._http, "/api/chat", payload,
-                    unreachable="LLM недоступна (на демо-сервере: не открыт туннель к Ollama)")
+        return post(self._http, "/api/chat", payload, unreachable=self._unreachable)
