@@ -1,6 +1,6 @@
 """Настройки из переменных окружения (на сервере — shared/.env через systemd)."""
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 def _int(name: str, default: int) -> int:
@@ -19,8 +19,12 @@ def _float(name: str, default: float) -> float:
 
 @dataclass(frozen=True)
 class Settings:
+    # ollama — локальная модель (по умолчанию); openai — любой OpenAI-совместимый API.
+    llm_provider: str = os.environ.get("LLM_PROVIDER", "ollama")
     llm_url: str = os.environ.get("LLM_URL", "http://127.0.0.1:11434")
     llm_model: str = os.environ.get("LLM_MODEL", "gemma3:4b")
+    # Ключ только из окружения; repr=False — чтобы не попал в логи и трейсбеки.
+    llm_api_key: str = field(default=os.environ.get("LLM_API_KEY", ""), repr=False)
     llm_timeout: float = _float("LLM_TIMEOUT", 240.0)      # сек на один вызов модели
     llm_temperature: float = _float("LLM_TEMPERATURE", 0.3)
     llm_keep_alive: str = os.environ.get("LLM_KEEP_ALIVE", "30m")

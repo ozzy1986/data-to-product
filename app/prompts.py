@@ -4,7 +4,7 @@ from typing import Any
 
 from .models import NO_DATA, ProductInput
 
-PROMPT_VERSION = "3"
+PROMPT_VERSION = "4"
 
 TITLE_MAX = 70
 DESCRIPTION_MIN, DESCRIPTION_MAX = 800, 1200
@@ -65,7 +65,9 @@ SCHEMA: dict[str, Any] = {
 
 
 def product_block(product: ProductInput) -> str:
-    lines = ["<product>", f"Название: {product.name}", f"Производитель: {product.manufacturer or NO_DATA}"]
+    # «Производитель: данных нет» модель вставляла в текст дословно («от производителя данных нет»).
+    maker = product.manufacturer or "не указан, в текстах производителя не упоминай"
+    lines = ["<product>", f"Название: {product.name}", f"Производитель: {maker}"]
     if product.specs:
         lines.append("Характеристики:")
         lines += [f"- {name}: {value or NO_DATA}" for name, value in product.specs.items()]
