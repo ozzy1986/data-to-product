@@ -53,3 +53,27 @@ def uses_decimal_comma(product: ProductInput) -> bool:
 
 def to_decimal_comma(text: str) -> str:
     return _DOT_DECIMAL.sub(",", text)
+
+
+# Оценочные слова и свойства, которые модель любит дописывать «от себя». Допустимы, только если
+# такое слово (основа) есть во входе. Это не все возможные выдумки — но самые частые у малых моделей.
+CLAIM_STEMS = (
+    "идеальн", "лучш", "уникальн", "инновацион", "превосходн", "непревзойд", "высококачеств",
+    "надёжн", "надежн", "высокоточн", "прочн", "долговечн", "устойчив", "стойк", "агрессивн",
+    "взрывозащ", "сертифиц", "гарант",
+)
+_WORD = re.compile(r"\w+")
+
+
+def source_text(product: ProductInput) -> str:
+    return " ".join([product.name, product.manufacturer, product.description,
+                     *product.specs.keys(), *product.specs.values()]).casefold()
+
+
+def unsupported_claims(text: str, source: str) -> list[str]:
+    """Слова из text с «опасной» основой, которой нет во входе (source — результат source_text)."""
+    found: list[str] = []
+    for word in _WORD.findall(text.casefold()):
+        if any(stem in word and stem not in source for stem in CLAIM_STEMS) and word not in found:
+            found.append(word)
+    return found

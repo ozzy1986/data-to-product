@@ -1,6 +1,6 @@
 import pytest
 
-from app.generator import CardGenerator, find_problems, normalize, shorten
+from app.generator import CardGenerator, build_specs, find_problems, normalize, shorten
 from app.llm import LLMError, LLMUnavailable
 from app.models import NO_DATA, ProductInput
 from tests.fakes import PRODUCT, FakeLLM, answer
@@ -123,3 +123,15 @@ def test_number_problem_names_field_and_fragment():
 def test_dot_decimals_are_rewritten_to_input_style():
     card = CardGenerator(FakeLLM(answer(seo_title="Манометр DM 02 0–1.6 МПа"))).generate(product).card
     assert card.seo_title == "Манометр DM 02 0–1,6 МПа"
+
+
+def test_unsupported_claim_triggers_repair():
+    llm = FakeLLM(answer(seo_title="Надёжный манометр DM 02 Манотомь"), answer())
+    assert CardGenerator(llm).generate(product).attempts == 2
+    assert "seo_title: «надёжный»" in llm.prompts[1]
+
+
+def test_missing_name_covered_by_input_name_is_skipped():
+    p = ProductInput(name="X", specs={"материал корпуса и мембраны": "сталь"})
+    specs = build_specs(p, ["Материал мембраны", "Степень защиты"])
+    assert [s.name for s in specs] == ["Материал корпуса и мембраны", "Степень защиты"]

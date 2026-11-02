@@ -1,4 +1,5 @@
-from app.factcheck import numbers, source_numbers, to_decimal_comma, unknown_numbers, uses_decimal_comma
+from app.factcheck import (numbers, source_numbers, source_text, to_decimal_comma, unknown_numbers,
+                           unsupported_claims, uses_decimal_comma)
 from app.models import ProductInput
 from tests.fakes import PRODUCT
 
@@ -22,3 +23,9 @@ def test_decimal_style_follows_input():
     assert uses_decimal_comma(ProductInput(**PRODUCT))
     assert not uses_decimal_comma(ProductInput(name="X", specs={"a": "1.6 МПа", "b": "1,5"}))
     assert to_decimal_comma("0–1.6 МПа, G1/2, класс 1.5") == "0–1,6 МПа, G1/2, класс 1,5"
+
+
+def test_claims_absent_from_input_are_found():
+    src = source_text(ProductInput(name="Датчик", description="для сред, неагрессивных к нержавеющей стали"))
+    text = "Идеально подходит: корпус устойчив к агрессивным средам, надёжный."
+    assert unsupported_claims(text, src) == ["идеально", "устойчив", "надёжный"]

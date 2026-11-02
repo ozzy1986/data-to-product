@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import hashlib
+import re
 import logging
 import threading
 from collections import OrderedDict
@@ -16,7 +17,8 @@ from typing import Any
 
 from . import prompts
 from .completeness import find_gaps
-from .factcheck import source_numbers, to_decimal_comma, unknown_numbers, uses_decimal_comma
+from .factcheck import (source_numbers, source_text, to_decimal_comma, unknown_numbers, unsupported_claims,
+                        uses_decimal_comma)
 from .llm import LLMClient, LLMError
 from .models import NO_DATA, Card, CardResult, Commercial, ProductInput, SpecItem
 from .render import to_markdown
@@ -48,13 +50,13 @@ def normalize(raw: dict[str, Any]) -> dict[str, Any]:
         "seo_title": " ".join(_text(raw.get("seo_title")).split()).strip(" ."),
         "seo_description": _text(raw.get("seo_description")),
         "search_queries": [q.lower() for q in _list(raw.get("search_queries"), prompts.QUERIES_MAX)],
-        "commercial": {"audience": _list(commercial.get("audience"), 4),
-                       "tasks": _list(commercial.get("tasks"), 4)},
+        "commercial": {"audience": [_capitalize(a) for a in _list(commercial.get("audience"), 4)],
+                       "tasks": [_capitalize(x) for x in _list(commercial.get("tasks"), 4)]},
         "missing_characteristics": _list(raw.get("missing_characteristics"), 6),
     }
 
 
-def find_problems(draft: dict[str, Any], allowed_numbers: set[str]) -> list[str]:
+def find_problems(draft: dict[str, Any], allowed_numbers: set[str], source: str = "") -> list[str]:
     """Замечания формулируются для модели (повтор) и для менеджера (warnings), поэтому — конкретно."""
     problems: list[str] = []
     title, description = draft["seo_title"], draft["seo_description"]
@@ -73,16 +75,22 @@ def find_problems(draft: dict[str, Any], allowed_numbers: set[str]) -> list[str]
         problems.append(f"search_queries: нужно {prompts.QUERIES_MIN}–{prompts.QUERIES_MAX} разных запроса.")
     if not draft["commercial"]["audience"] or not draft["commercial"]["tasks"]:
         problems.append("commercial: заполни и audience, и tasks.")
-    # Где именно число — чтобы модель при повторе (и менеджер) нашли его сразу.
-    fields = [("seo_title", title), ("seo_description", description),
-              *(("search_queries", q) for q in draft["search_queries"]),
-              *(("commercial.audience", a) for a in draft["commercial"]["audience"]),
-              *(("commercial.tasks", t) for t in draft["commercial"]["tasks"]),
-              *(("missing_characteristics", m) for m in draft["missing_characteristics"])]
-    for field, text in fields:
+    # Поле и фрагмент в замечании — чтобы модель при повторе (и менеджер) нашли место сразу.
+    texts = [("seo_title", title), ("seo_description", description),
+             *(("search_queries", q) for q in draft["search_queries"]),
+             *(("commercial.audience", a) for a in draft["commercial"]["audience"]),
+             *(("commercial.tasks", t) for t in draft["commercial"]["tasks"])]
+    names = [("missing_characteristics", m) for m in draft["missing_characteristics"]]
+    for field, text in texts + names:
         for number in unknown_numbers(text, allowed_numbers):
             problems.append(f"{field}: число «{number}» отсутствует во входных данных ({_snippet(text, number)}). "
                             "Напиши значение точно как во входе или убери его.")
+    if source:
+        for field, text in texts:
+            claims = unsupported_claims(text, source)
+            if claims:
+                problems.append(f"{field}: «{'», «'.join(claims)}» — во входных данных этого нет. "
+                                "Убери оценку или свойство, которое не подтверждено входом.")
     return problems
 
 
@@ -104,15 +112,21 @@ def _capitalize(name: str) -> str:
     return name[:1].upper() + name[1:]
 
 
+def _stems(name: str) -> set[str]:
+    """Основы слов (первые 5 букв) — грубо, но без морфологии: «мембраны» ~ «мембрана»."""
+    return {w[:5] for w in re.findall(r"\w+", name.casefold()) if len(w) > 2}
+
+
 def build_specs(product: ProductInput, missing_names: list[str]) -> list[SpecItem]:
     specs = [SpecItem(name=_capitalize(k), value=v or NO_DATA, source="input" if v else "missing")
              for k, v in product.specs.items()]
-    known = [k.casefold() for k in product.specs]
+    known = [_stems(k) for k in product.specs]
     for name in missing_names:
-        key = name.casefold()
-        if not any(key in k or k in key for k in known):  # «диапазон измерений» уже есть во входе
+        stems = _stems(name)
+        # «материал мембраны» уже покрыт входным «материал корпуса и мембраны»
+        if stems and not any(stems <= k or k <= stems for k in known if k):
             specs.append(SpecItem(name=_capitalize(name), value=NO_DATA, source="missing"))
-            known.append(key)
+            known.append(stems)
     return specs
 
 
@@ -149,16 +163,16 @@ class CardGenerator:
         return hashlib.sha256(raw.encode()).hexdigest()
 
     def _generate(self, product: ProductInput) -> CardResult:
-        allowed = source_numbers(product)
+        allowed, source = source_numbers(product), source_text(product)
         comma = uses_decimal_comma(product)
         draft = self._draft(prompts.user_prompt(product), comma)
-        problems = find_problems(draft, allowed)
+        problems = find_problems(draft, allowed, source)
         attempts = 1
         best = (draft, problems)
         while problems and attempts <= self.repairs:
             log.info("attempt %d problems: %s", attempts, problems)
             draft = self._draft(prompts.repair_prompt(product, draft, problems), comma)
-            problems = find_problems(draft, allowed)
+            problems = find_problems(draft, allowed, source)
             attempts += 1
             if len(problems) <= len(best[1]):
                 best = (draft, problems)

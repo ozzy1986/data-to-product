@@ -67,6 +67,11 @@ input, textarea {
 input:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
 textarea { resize: vertical; }
 .spec { display: grid; grid-template-columns: 1fr 1fr auto; gap: 6px; }
+@media (max-width: 520px) {
+  .spec { grid-template-columns: 1fr auto; padding-bottom: 6px; border-bottom: 1px dashed var(--line); }
+  .spec input:nth-child(2) { grid-column: 1; }
+  .spec button { grid-row: 1; grid-column: 2; }
+}
 .code { font: 13px/1.45 ui-monospace, SFMono-Regular, Consolas, monospace; }
 pre.code { white-space: pre-wrap; word-break: break-word; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 12px; margin: 0; max-height: 70vh; overflow: auto; }
 

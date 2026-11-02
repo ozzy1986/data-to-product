@@ -43,9 +43,10 @@ def main(argv: list[str] | None = None) -> int:
         if args.out:
             args.out.mkdir(parents=True, exist_ok=True)
             record = {"id": path.stem, "input": product.model_dump(), "result": result.model_dump()}
+            # newline="\n": репозиторий в LF и на Windows
             (args.out / f"{path.stem}.json").write_text(
-                json.dumps(record, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-            (args.out / f"{path.stem}.md").write_text(result.markdown, encoding="utf-8")
+                json.dumps(record, ensure_ascii=False, indent=2) + "\n", encoding="utf-8", newline="\n")
+            (args.out / f"{path.stem}.md").write_text(result.markdown, encoding="utf-8", newline="\n")
             print(f"{path} → {args.out / path.stem}.{{json,md}} (попыток: {result.attempts}, "
                   f"предупреждений: {len(result.warnings)})")
         else:
