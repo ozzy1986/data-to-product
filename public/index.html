@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Карточка товара КИП</title>
+  <meta name="description" content="Черновик карточки товара для B2B-магазина КИП по данным о приборе">
+  <meta name="robots" content="noindex">
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+<header class="top">
+  <div>
+    <h1>Карточка товара КИП</h1>
+    <p class="muted">Данные о приборе → SEO-заголовок, описание, характеристики, запросы и блок для менеджера.
+      Технические значения берутся только из входных данных.</p>
+  </div>
+  <span id="llm" class="status" title="Состояние модели">модель: проверка…</span>
+</header>
+
+<main class="grid">
+  <section class="panel">
+    <div class="row between">
+      <h2>Входные данные</h2>
+      <div class="tabs" role="tablist">
+        <button type="button" role="tab" data-mode="form" aria-selected="true">Форма</button>
+        <button type="button" role="tab" data-mode="json" aria-selected="false">JSON</button>
+      </div>
+    </div>
+    <div class="row wrap" id="examples"><span class="muted">Примеры:</span></div>
+
+    <form id="form" novalidate>
+      <label><span>Название <span class="req">*</span></span>
+        <input name="name" required maxlength="300" placeholder="Манометр показывающий DM 02">
+      </label>
+      <label>Производитель
+        <input name="manufacturer" maxlength="200" placeholder="Манотомь">
+      </label>
+      <fieldset>
+        <legend>Характеристики</legend>
+        <div id="specs"></div>
+        <button type="button" id="add-spec" class="link">+ характеристика</button>
+      </fieldset>
+      <label>Описание / фрагмент паспорта
+        <textarea name="description" rows="6" maxlength="8000"></textarea>
+      </label>
+    </form>
+
+    <textarea id="json" class="code" rows="22" spellcheck="false" hidden></textarea>
+
+    <div class="row">
+      <button type="button" id="generate" class="primary">Сгенерировать</button>
+      <span id="progress" class="muted" aria-live="polite"></span>
+    </div>
+    <div id="error" class="alert error" role="alert" hidden></div>
+  </section>
+
+  <section class="panel" id="result" hidden>
+    <div class="row between">
+      <h2>Черновик карточки</h2>
+      <div class="tabs" role="tablist">
+        <button type="button" role="tab" data-view="card" aria-selected="true">Карточка</button>
+        <button type="button" role="tab" data-view="markdown" aria-selected="false">Markdown</button>
+        <button type="button" role="tab" data-view="json" aria-selected="false">JSON</button>
+      </div>
+    </div>
+    <p id="meta" class="muted small"></p>
+    <div id="warnings" class="alert warn" hidden></div>
+    <div id="missing" class="alert info" hidden></div>
+    <div id="view-card"></div>
+    <div id="view-raw" hidden>
+      <div class="row end"><button type="button" class="copy" data-copy-raw>Копировать</button></div>
+      <pre id="raw" class="code"></pre>
+    </div>
+  </section>
+</main>
+
+<footer class="muted small">
+  Прототип. <a href="https://github.com/ozzy1986/data-to-product">Исходный код и README</a> ·
+  API: <code>POST /api/generate</code>
+</footer>
+</body>
+</html>

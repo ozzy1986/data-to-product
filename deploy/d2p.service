@@ -1,0 +1,47 @@
+# Юнит сервиса. setup-server.sh ставит его, если в релизе есть deploy/start.sh.
+[Unit]
+Description=Product card drafts data-to-product.ozzy1986.com (FastAPI/uvicorn)
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=d2p
+Group=d2p
+WorkingDirectory=/var/www/data-to-product.ozzy1986.com/current
+EnvironmentFile=/var/www/data-to-product.ozzy1986.com/shared/.env
+Environment=PORT=8103 PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+ExecStart=/bin/bash /var/www/data-to-product.ozzy1986.com/current/deploy/start.sh
+Restart=always
+RestartSec=3
+
+# Один сервис не должен уронить сервер.
+MemoryHigh=120M
+MemoryMax=160M
+TasksMax=64
+
+# Песочница: ФС только на чтение, без привилегий, свой /tmp.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+CapabilityBoundingSet=
+AmbientCapabilities=
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+
+[Install]
+WantedBy=multi-user.target
